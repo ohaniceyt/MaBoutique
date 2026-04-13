@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaBoutique Togo</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#15803d">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans pb-24">
+    <nav class="bg-green-700 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold italic">MaBoutique 🇹🇬</h1>
+                <p class="text-xs opacity-80">Stock & Dettes</p>
+            </div>
+            <div id="offline-badge" class="hidden bg-red-500 text-[10px] px-2 py-1 rounded">HORS-LIGNE</div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 max-w-md">
+        <div class="flex mb-6 bg-gray-200 rounded-lg p-1">
+            <button onclick="switchTab('stock')" id="tab-stock" class="flex-1 py-2 rounded-md bg-white shadow-sm font-bold">Stock</button>
+            <button onclick="switchTab('dettes')" id="tab-dettes" class="flex-1 py-2 rounded-md font-bold">Dettes</button>
+        </div>
+
+        <div id="section-stock">
+            <div id="inventory-list" class="space-y-3"></div>
+        </div>
+
+        <div id="section-dettes" class="hidden">
+            <div id="debt-list" class="space-y-3"></div>
+        </div>
+    </main>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <button onclick="addItem()" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform">
+            + Produit
+        </button>
+        <button onclick="addDebt()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform">
+            + Dette
+        </button>
+    </div>
+
+    <script>
+        let inventory = JSON.parse(localStorage.getItem('tg_inventory')) || [];
+        let debts = JSON.parse(localStorage.getItem('tg_debts')) || [];
+
+        function save() {
+            localStorage.setItem('tg_inventory', JSON.stringify(inventory));
+            localStorage.setItem('tg_debts', JSON.stringify(debts));
+            render();
+        }
+
+        function switchTab(tab) {
+            document.getElementById('section-stock').classList.toggle('hidden', tab !== 'stock');
+            document.getElementById('section-dettes').classList.toggle('hidden', tab !== 'dettes');
+            document.getElementById('tab-stock').className = tab === 'stock' ? 'flex-1 py-2 rounded-md bg-white shadow-sm font-bold' : 'flex-1 py-2 rounded-md font-bold';
+            document.getElementById('tab-dettes').className = tab === 'dettes' ? 'flex-1 py-2 rounded-md bg-white shadow-sm font-bold' : 'flex-1 py-2 rounded-md font-bold';
+        }
+
+        function render() {
+            const invList = document.getElementById('inventory-list');
+            invList.innerHTML = inventory.length ? '' : '<p class="text-center text-gray-400 py-10 italic">Aucun produit.</p>';
+            inventory.forEach((item, i) => {
+                invList.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                        <div><h3 class="font-bold">${item.name}</h3><p class="text-sm text-gray-500">${item.qty} en stock</p></div>
+                        <div class="flex gap-2">
+                            <button onclick="updateQty(${i}, -1)" class="bg-gray-100 w-10 h-10 rounded-lg">-</button>
+                            <button onclick="updateQty(${i}, 1)" class="bg-green-100 text-green-700 w-10 h-10 rounded-lg">+</button>
+                        </div>
+                    </div>`;
+            });
+
+            const debtList = document.getElementById('debt-list');
+            debtList.innerHTML = debts.length ? '' : '<p class="text-center text-gray-400 py-10 italic">Aucune dette.</p>';
+            debts.forEach((d, i) => {
+                debtList.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm flex justify-between items-center">
+                        <div><h3 class="font-bold">${d.client}</h3><p class="text-blue-600 font-bold">${d.amount} CFA</p></div>
+                        <button onclick="deleteDebt(${i})" class="text-xs bg-gray-100 px-3 py-2 rounded">Réglé</button>
+                    </div>`;
+            });
+        }
+
+        function updateQty(i, change) { inventory[i].qty = Math.max(0, inventory[i].qty + change); save(); }
+        function addItem() { const name = prompt("Nom du produit:"); if (name) { inventory.push({ name, qty: 0 }); save(); } }
+        function addDebt() { const client = prompt("Nom du client:"); const amount = prompt("Montant (CFA):"); if (client && amount) { debts.push({ client, amount }); save(); } }
+        function deleteDebt(i) { if(confirm("Réglé?")) { debts.splice(i, 1); save(); } }
+
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+        window.addEventListener('offline', () => document.getElementById('offline-badge').classList.remove('hidden'));
+        window.addEventListener('online', () => document.getElementById('offline-badge').classList.add('hidden'));
+        render();
+    </script>
+</body>
+</html>
