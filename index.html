@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MaBoutique Ultra 🇹🇬</title>
+    <title>MaBoutique Ultra v7 🇹🇬</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -16,17 +16,19 @@
         .hide-scroll::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 pb-40">
+<body class="bg-gray-50 text-gray-900 pb-44">
 
-    <nav class="bg-green-700 text-white p-5 sticky top-0 z-50 shadow-lg flex justify-between items-center">
+    <nav class="bg-green-700 text-white p-5 sticky top-0 z-50 shadow-lg flex justify-between items-center text-left">
         <div onclick="app.ui.openShopMenu()" class="flex items-center gap-3 cursor-pointer active:opacity-70">
             <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl shadow-inner">🏪</div>
-            <div class="text-left">
+            <div>
                 <h1 id="nav-shop-name" class="font-extrabold text-lg leading-tight italic">MaBoutique</h1>
                 <p id="nav-user-name" class="text-[10px] opacity-70 font-bold uppercase tracking-widest"></p>
             </div>
         </div>
-        <button onclick="app.ui.startScan()" class="bg-white/20 p-3 rounded-full text-xl active:bg-white/40">📷</button>
+        <div class="flex gap-2">
+            <button onclick="app.ui.startScan('vente')" class="bg-white/20 p-3 rounded-full text-xl active:bg-white/40">💰</button>
+        </div>
     </nav>
 
     <div class="p-4 sticky top-[72px] z-40 bg-gray-50/90 backdrop-blur-md">
@@ -38,30 +40,24 @@
     </div>
 
     <main class="px-4 max-w-md mx-auto">
-        <div id="view-stock" class="app-view space-y-3"></div>
+        <div id="view-stock" class="app-view space-y-4">
+            <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex gap-2 items-center">
+                <input type="text" id="stock-search" oninput="app.ui.filterStock()" placeholder="Chercher nom ou code ID..." class="flex-1 p-2 outline-none text-sm font-semibold bg-transparent">
+                <button onclick="app.ui.startScan('update')" class="bg-green-700 text-white p-2.5 rounded-xl text-lg active:scale-90 transition-transform">📷</button>
+            </div>
+            <div id="inventory-list" class="space-y-3"></div>
+        </div>
+
         <div id="view-dettes" class="app-view hidden space-y-3"></div>
+
         <div id="view-rapport" class="app-view hidden space-y-4">
-            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-white">
+            <div class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-black text-xl">Bilan Financier</h3>
-                    <button onclick="app.logic.shareReport()" class="bg-green-100 text-green-700 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase">Partager 📲</button>
+                    <h3 class="font-black text-xl">Bilan du Jour</h3>
+                    <button onclick="app.logic.shareReport()" class="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase">WhatsApp 📲</button>
                 </div>
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                    <div class="bg-green-50 p-4 rounded-2xl border border-green-100">
-                        <p class="text-[9px] font-bold text-green-600 uppercase mb-1">Entrées</p>
-                        <p id="rep-in" class="text-lg font-black text-green-900">0</p>
-                    </div>
-                    <div class="bg-red-50 p-4 rounded-2xl border border-red-100">
-                        <p class="text-[9px] font-bold text-red-600 uppercase mb-1">Dépenses</p>
-                        <p id="rep-out" class="text-lg font-black text-red-900">0</p>
-                    </div>
-                </div>
-                <div class="bg-gray-900 p-5 rounded-3xl mb-6 text-center shadow-xl">
-                    <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Bénéfice Net Estimé</p>
-                    <p id="rep-gain" class="text-3xl font-black text-green-400">0 CFA</p>
-                </div>
-                <div id="rep-log" class="space-y-2 max-h-60 overflow-y-auto hide-scroll"></div>
-                <button onclick="app.logic.clearReport()" class="w-full mt-6 text-[10px] font-bold text-red-300 uppercase py-2">Clôturer la journée</button>
+                <div id="rep-log" class="space-y-2 mb-6"></div>
+                <button onclick="app.logic.clearReport()" class="w-full text-[10px] font-bold text-red-300 uppercase py-2">Clôturer la journée</button>
             </div>
         </div>
     </main>
@@ -69,23 +65,14 @@
     <div id="modal-scan" class="modal items-center justify-center p-4">
         <div class="bg-white p-4 rounded-3xl w-full max-w-sm">
             <div id="reader" class="rounded-2xl overflow-hidden"></div>
-            <button onclick="app.ui.stopScan()" class="w-full bg-red-50 text-red-500 py-4 mt-4 rounded-2xl font-black">FERMER LE SCANNER</button>
-        </div>
-    </div>
-
-    <div id="modal-shops" class="modal items-end sm:items-center justify-center p-0 sm:p-4">
-        <div class="bg-white p-6 rounded-t-[2.5rem] sm:rounded-3xl w-full max-w-sm shadow-2xl">
-            <h3 class="text-xl font-black mb-6">Mes Boutiques</h3>
-            <div id="shop-list-container" class="space-y-3 mb-6"></div>
-            <button onclick="app.ui.promptNewShop()" class="w-full border-2 border-dashed border-green-200 py-4 rounded-2xl text-green-600 font-bold mb-4">+ Nouvelle Boutique</button>
-            <button onclick="document.getElementById('modal-shops').classList.remove('active')" class="w-full bg-gray-100 py-4 rounded-2xl font-black">Fermer</button>
+            <button onclick="app.ui.stopScan()" class="w-full bg-red-50 text-red-500 py-4 mt-4 rounded-2xl font-black">ANNULER LE SCAN</button>
         </div>
     </div>
 
     <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-6 flex flex-wrap gap-3 z-50">
-        <button onclick="app.ui.addProduct()" class="flex-1 bg-green-600 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-sm">+ PRODUIT</button>
-        <button onclick="app.ui.addDebt()" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-sm">+ DETTE</button>
-        <button onclick="app.ui.addExpense()" class="w-full bg-red-500 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-sm italic">SORTE DE CAISSE (DÉPENSE)</button>
+        <button onclick="app.ui.addProduct()" class="flex-1 bg-green-600 text-white py-4 rounded-2xl font-black shadow-lg">+ PRODUIT</button>
+        <button onclick="app.ui.addDebt()" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">+ DETTE</button>
+        <button onclick="app.ui.addExpense()" class="w-full bg-red-500 text-white py-4 rounded-2xl font-black shadow-lg text-xs italic">SORTE DE CAISSE (DÉPENSE)</button>
     </div>
 
     <script src="app.js"></script>
