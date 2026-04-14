@@ -3,26 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MaBoutique Togo</title>
+    <title>MaBoutique Pro 🇹🇬</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#15803d">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; }
+        .modal.active { display: flex; }
+    </style>
 </head>
-<body class="bg-gray-50 font-sans pb-24">
+<body class="bg-gray-100 font-sans pb-24">
+
+    <div id="onboarding" class="modal items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-xl">
+            <h2 class="text-2xl font-bold mb-4 text-green-700">Bienvenue ! 🇹🇬</h2>
+            <p class="text-sm text-gray-600 mb-6">Créez votre profil pour commencer à gérer vos boutiques.</p>
+            <input type="text" id="user-name" placeholder="Votre Nom complet" class="w-full p-3 border rounded-xl mb-3">
+            <input type="text" id="initial-shop" placeholder="Nom de votre 1ère boutique" class="w-full p-3 border rounded-xl mb-6">
+            <button onclick="finishOnboarding()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold">Commencer</button>
+        </div>
+    </div>
+
     <nav class="bg-green-700 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold italic">MaBoutique 🇹🇬</h1>
-                <p class="text-xs opacity-80">Stock & Dettes</p>
+            <div onclick="openShopManager()" class="cursor-pointer">
+                <h1 id="current-shop-name" class="text-xl font-bold italic">MaBoutique</h1>
+                <p id="user-display" class="text-[10px] opacity-80 uppercase tracking-widest"></p>
             </div>
-            <div id="offline-badge" class="hidden bg-red-500 text-[10px] px-2 py-1 rounded">HORS-LIGNE</div>
+            <button onclick="openShopManager()" class="bg-green-800 p-2 rounded-lg">🏪</button>
         </div>
     </nav>
 
     <main class="container mx-auto p-4 max-w-md">
-        <div class="flex mb-6 bg-gray-200 rounded-lg p-1">
+        <div class="flex mb-6 bg-gray-200 rounded-lg p-1 text-sm">
             <button onclick="switchTab('stock')" id="tab-stock" class="flex-1 py-2 rounded-md bg-white shadow-sm font-bold">Stock</button>
             <button onclick="switchTab('dettes')" id="tab-dettes" class="flex-1 py-2 rounded-md font-bold">Dettes</button>
+            <button onclick="switchTab('admin')" id="tab-admin" class="flex-1 py-2 rounded-md font-bold">Équipe</button>
         </div>
 
         <div id="section-stock">
@@ -32,68 +48,198 @@
         <div id="section-dettes" class="hidden">
             <div id="debt-list" class="space-y-3"></div>
         </div>
+
+        <div id="section-admin" class="hidden">
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-4">
+                <h3 class="font-bold mb-2">Administrateurs</h3>
+                <div id="admin-list" class="space-y-2 text-sm text-gray-600"></div>
+                <button onclick="addAdmin()" class="mt-4 text-green-600 font-bold text-sm">+ Ajouter un gérant</button>
+            </div>
+        </div>
     </main>
 
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-        <button onclick="addItem()" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform">
-            + Produit
-        </button>
-        <button onclick="addDebt()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform">
-            + Dette
-        </button>
+    <div id="shop-modal" class="modal items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white p-6 rounded-t-3xl sm:rounded-2xl w-full max-w-sm shadow-xl">
+            <h3 class="text-lg font-bold mb-4">Mes Boutiques</h3>
+            <div id="my-shops-list" class="space-y-2 mb-6"></div>
+            <button onclick="createNewShop()" class="w-full border-2 border-dashed border-gray-300 py-3 rounded-xl text-gray-500 mb-4">+ Nouvelle Boutique</button>
+            <button onclick="closeShopManager()" class="w-full bg-gray-100 py-3 rounded-xl font-bold">Fermer</button>
+        </div>
+    </div>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3 shadow-lg">
+        <button onclick="addItem()" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold">+ Produit</button>
+        <button onclick="addDebt()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold">+ Dette</button>
     </div>
 
     <script>
-        let inventory = JSON.parse(localStorage.getItem('tg_inventory')) || [];
-        let debts = JSON.parse(localStorage.getItem('tg_debts')) || [];
+        // STRUCTURE DE DONNÉES
+        let db = JSON.parse(localStorage.getItem('maboutique_pro_db')) || {
+            user: null,
+            currentShopId: 0,
+            shops: []
+        };
 
-        function save() {
-            localStorage.setItem('tg_inventory', JSON.stringify(inventory));
-            localStorage.setItem('tg_debts', JSON.stringify(debts));
+        // INITIALISATION
+        if (!db.user) {
+            document.getElementById('onboarding').classList.add('active');
+        } else {
+            initApp();
+        }
+
+        function finishOnboarding() {
+            const name = document.getElementById('user-name').value;
+            const shopName = document.getElementById('initial-shop').value;
+            if (name && shopName) {
+                db.user = { name: name };
+                db.shops.push({
+                    id: Date.now(),
+                    name: shopName,
+                    inventory: [],
+                    debts: [],
+                    admins: [name]
+                });
+                saveAndRefresh();
+                document.getElementById('onboarding').classList.remove('active');
+                initApp();
+            }
+        }
+
+        function initApp() {
+            const currentShop = db.shops.find(s => s.id === db.currentShopId) || db.shops[0];
+            db.currentShopId = currentShop.id;
+            document.getElementById('current-shop-name').innerText = currentShop.name;
+            document.getElementById('user-display').innerText = `Gérant: ${db.user.name}`;
             render();
         }
 
+        function saveAndRefresh() {
+            localStorage.setItem('maboutique_pro_db', JSON.stringify(db));
+            render();
+        }
+
+        // NAVIGATION
         function switchTab(tab) {
-            document.getElementById('section-stock').classList.toggle('hidden', tab !== 'stock');
-            document.getElementById('section-dettes').classList.toggle('hidden', tab !== 'dettes');
-            document.getElementById('tab-stock').className = tab === 'stock' ? 'flex-1 py-2 rounded-md bg-white shadow-sm font-bold' : 'flex-1 py-2 rounded-md font-bold';
-            document.getElementById('tab-dettes').className = tab === 'dettes' ? 'flex-1 py-2 rounded-md bg-white shadow-sm font-bold' : 'flex-1 py-2 rounded-md font-bold';
+            ['stock', 'dettes', 'admin'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.toggle('hidden', t !== tab);
+                document.getElementById(`tab-${t}`).className = t === tab ? 'flex-1 py-2 rounded-md bg-white shadow-sm font-bold' : 'flex-1 py-2 rounded-md font-bold';
+            });
         }
 
+        // RENDU
         function render() {
+            const shop = db.shops.find(s => s.id === db.currentShopId);
+            
+            // Stock
             const invList = document.getElementById('inventory-list');
-            invList.innerHTML = inventory.length ? '' : '<p class="text-center text-gray-400 py-10 italic">Aucun produit.</p>';
-            inventory.forEach((item, i) => {
-                invList.innerHTML += `
-                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
-                        <div><h3 class="font-bold">${item.name}</h3><p class="text-sm text-gray-500">${item.qty} en stock</p></div>
-                        <div class="flex gap-2">
-                            <button onclick="updateQty(${i}, -1)" class="bg-gray-100 w-10 h-10 rounded-lg">-</button>
-                            <button onclick="updateQty(${i}, 1)" class="bg-green-100 text-green-700 w-10 h-10 rounded-lg">+</button>
-                        </div>
-                    </div>`;
-            });
+            invList.innerHTML = shop.inventory.map((item, i) => `
+                <div class="bg-white p-4 rounded-xl shadow-sm flex justify-between">
+                    <div><p class="font-bold">${item.name}</p><p class="text-xs text-gray-500">${item.qty} en stock</p></div>
+                    <div class="flex gap-2">
+                        <button onclick="updateQty(${i}, -1)" class="w-8 h-8 bg-gray-100 rounded">-</button>
+                        <button onclick="updateQty(${i}, 1)" class="w-8 h-8 bg-green-100 text-green-700 rounded">+</button>
+                    </div>
+                </div>
+            `).join('');
 
+            // Dettes & Acomptes
             const debtList = document.getElementById('debt-list');
-            debtList.innerHTML = debts.length ? '' : '<p class="text-center text-gray-400 py-10 italic">Aucune dette.</p>';
-            debts.forEach((d, i) => {
-                debtList.innerHTML += `
-                    <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm flex justify-between items-center">
-                        <div><h3 class="font-bold">${d.client}</h3><p class="text-blue-600 font-bold">${d.amount} CFA</p></div>
-                        <button onclick="deleteDebt(${i})" class="text-xs bg-gray-100 px-3 py-2 rounded">Réglé</button>
-                    </div>`;
-            });
+            debtList.innerHTML = shop.debts.map((d, i) => `
+                <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm mb-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div><p class="font-bold">${d.client}</p><p class="text-xs text-gray-500">Total: ${d.total} CFA</p></div>
+                        <p class="text-blue-700 font-bold">${d.total - d.paid} CFA restant</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="addPayment(${i})" class="text-[10px] bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-100">Encaisser Acompte</button>
+                        <button onclick="deleteDebt(${i})" class="text-[10px] bg-gray-50 px-3 py-1 rounded-full">Réglé</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Admins
+            document.getElementById('admin-list').innerHTML = shop.admins.map(a => `<div>• ${a}</div>`).join('');
         }
 
-        function updateQty(i, change) { inventory[i].qty = Math.max(0, inventory[i].qty + change); save(); }
-        function addItem() { const name = prompt("Nom du produit:"); if (name) { inventory.push({ name, qty: 0 }); save(); } }
-        function addDebt() { const client = prompt("Nom du client:"); const amount = prompt("Montant (CFA):"); if (client && amount) { debts.push({ client, amount }); save(); } }
-        function deleteDebt(i) { if(confirm("Réglé?")) { debts.splice(i, 1); save(); } }
+        // LOGIQUE DETTES & ACOMPTES
+        function addDebt() {
+            const client = prompt("Nom du client :");
+            const total = parseInt(prompt("Montant total de la dette (CFA) :"));
+            if (client && total) {
+                const shop = db.shops.find(s => s.id === db.currentShopId);
+                shop.debts.push({ client, total, paid: 0 });
+                saveAndRefresh();
+            }
+        }
+
+        function addPayment(index) {
+            const shop = db.shops.find(s => s.id === db.currentShopId);
+            const amount = parseInt(prompt(`Montant de l'acompte pour ${shop.debts[index].client} :`));
+            if (amount) {
+                shop.debts[index].paid += amount;
+                if (shop.debts[index].paid >= shop.debts[index].total) {
+                    alert("Dette totalement réglée !");
+                    shop.debts.splice(index, 1);
+                }
+                saveAndRefresh();
+            }
+        }
+
+        // GESTION MULTI-BOUTIQUES
+        function openShopManager() {
+            const list = document.getElementById('my-shops-list');
+            list.innerHTML = db.shops.map(s => `
+                <div onclick="switchShop(${s.id})" class="p-4 rounded-xl border ${s.id === db.currentShopId ? 'border-green-600 bg-green-50' : 'bg-gray-50'} cursor-pointer font-bold">
+                    ${s.name} ${s.id === db.currentShopId ? '✓' : ''}
+                </div>
+            `).join('');
+            document.getElementById('shop-modal').classList.add('active');
+        }
+
+        function switchShop(id) {
+            db.currentShopId = id;
+            document.getElementById('shop-modal').classList.remove('active');
+            initApp();
+            saveAndRefresh();
+        }
+
+        function createNewShop() {
+            const name = prompt("Nom de la nouvelle boutique :");
+            if (name) {
+                db.shops.push({ id: Date.now(), name, inventory: [], debts: [], admins: [db.user.name] });
+                saveAndRefresh();
+                openShopManager();
+            }
+        }
+
+        function closeShopManager() { document.getElementById('shop-modal').classList.remove('active'); }
+
+        // ADMINS
+        function addAdmin() {
+            const name = prompt("Nom du nouveau gérant :");
+            if (name) {
+                const shop = db.shops.find(s => s.id === db.currentShopId);
+                shop.admins.push(name);
+                saveAndRefresh();
+            }
+        }
+
+        function updateQty(i, c) { 
+            const shop = db.shops.find(s => s.id === db.currentShopId);
+            shop.inventory[i].qty = Math.max(0, shop.inventory[i].qty + c); 
+            saveAndRefresh(); 
+        }
+
+        function addItem() {
+            const name = prompt("Nom du produit :");
+            if (name) {
+                const shop = db.shops.find(s => s.id === db.currentShopId);
+                shop.inventory.push({ name, qty: 0 });
+                saveAndRefresh();
+            }
+        }
 
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
-        window.addEventListener('offline', () => document.getElementById('offline-badge').classList.remove('hidden'));
-        window.addEventListener('online', () => document.getElementById('offline-badge').classList.add('hidden'));
-        render();
     </script>
 </body>
 </html>
